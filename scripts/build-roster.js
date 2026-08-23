@@ -2,14 +2,14 @@
 
 const fs = require('fs');
 const path = require('path');
-const { parseCsv, parseCsvObjects, stringifyCsvRow } = require('./lib/csv');
+const { parseCsv, stringifyCsvRow } = require('./lib/csv');
 const { normalizeName } = require('./lib/normalize');
-const { runAggregate } = require('./lib/aggregates');
+const { loadSourceIndex, computeField } = require('./lib/fieldExtraction');
+const { loadCareerInfoRecords } = require('./lib/careerInfo');
 
 const ROOT = path.resolve(__dirname, '..');
 const DATA_DIR = path.join(ROOT, 'data');
 const BASELINE_PATH = path.join(DATA_DIR, 'baseline', 'nba-players.csv');
-const CAREER_INFO_PATH = path.join(DATA_DIR, 'Player Career Info.csv');
 const OUT_DIR = path.join(ROOT, 'out');
 const CONFIG = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'fields.json'), 'utf8'));
 const ALIASES = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'aliases.json'), 'utf8'));
@@ -43,8 +43,7 @@ function loadBaseline() {
 // 2. Build a normalized-name -> player_id(s) index from Player Career Info.csv
 // ---------------------------------------------------------------------------
 function loadCareerIndex() {
-  const text = fs.readFileSync(CAREER_INFO_PATH, 'utf8');
-  const { records } = parseCsvObjects(text);
+  const records = loadCareerInfoRecords(DATA_DIR);
   const index = new Map(); // normalized name -> [player_id, ...]
   for (const r of records) {
     const key = normalizeName(r.player);
@@ -70,54 +69,6 @@ function resolvePlayerId(name, careerIndex, matchReport) {
 }
 
 // ---------------------------------------------------------------------------
-// 3. Load and index each source CSV referenced by the enabled fields, grouped
-//    by player_id, so each field's aggregate only scans its own player's rows.
-// ---------------------------------------------------------------------------
-function loadSourceIndex(sourceFile) {
-  const text = fs.readFileSync(path.join(DATA_DIR, sourceFile), 'utf8');
-  const { records } = parseCsvObjects(text);
-  const byPlayer = new Map();
-  for (const r of records) {
-    const id = r.player_id;
-    if (!id) continue;
-    if (!byPlayer.has(id)) byPlayer.set(id, []);
-    byPlayer.get(id).push(r);
-  }
-  // Season-level stat files (Player Totals, Per Game, etc.) give players traded
-  // mid-season BOTH a combined "2TM"/"3TM" row and one row per team for that
-  // same season. Keep only the combined row so career sums aren't double-counted.
-  if (records.length && 'team' in records[0] && 'season' in records[0]) {
-    for (const [id, rows] of byPlayer) {
-      const multiTeamSeasons = new Set(
-        rows.filter((r) => /^\dTM$/.test(r.team)).map((r) => r.season)
-      );
-      if (multiTeamSeasons.size === 0) continue;
-      byPlayer.set(
-        id,
-        rows.filter((r) => !(multiTeamSeasons.has(r.season) && !/^\dTM$/.test(r.team)))
-      );
-    }
-  }
-  return byPlayer;
-}
-
-function recordMatchesFilter(record, filter) {
-  if (!filter) return true;
-  return Object.entries(filter).every(([k, v]) => record[k] === v);
-}
-
-function computeField(field, playerId, sourceIndexes) {
-  const byPlayer = sourceIndexes.get(field.source);
-  const allRecords = byPlayer.get(playerId) || [];
-  const filtered = allRecords.filter((r) => {
-    if (field.leagues && !field.leagues.includes(r.lg)) return false;
-    if (!recordMatchesFilter(r, field.filter)) return false;
-    return true;
-  });
-  return runAggregate(field.aggregate, filtered, field);
-}
-
-// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 function main() {
@@ -125,7 +76,7 @@ function main() {
   const careerIndex = loadCareerIndex();
   const enabledFields = CONFIG.fields.filter((f) => f.enabled);
   const sourceFiles = [...new Set(enabledFields.map((f) => f.source))];
-  const sourceIndexes = new Map(sourceFiles.map((f) => [f, loadSourceIndex(f)]));
+  const sourceIndexes = new Map(sourceFiles.map((f) => [f, loadSourceIndex(DATA_DIR, f)]));
 
   const matchReport = { unmatched: [], ambiguous: [] };
   const changelog = [];
