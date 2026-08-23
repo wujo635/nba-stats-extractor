@@ -15,6 +15,7 @@ Reads `data/baseline/nba-players.csv` and writes:
 - `out/nba-players.csv` — the regenerated roster, same format as the baseline
 - `out/changelog.csv` — every value that changed vs. the baseline (`Name,Field,Was,Now`)
 - `out/match-report.txt` — roster names that couldn't be matched to a Basketball-Reference `player_id`, or matched more than one
+- `out/history/<timestamp>-changelog.csv` and `out/history/<timestamp>-match-report.txt` — a timestamped copy of the above from every run, so past runs aren't lost when the "latest" files get overwritten. Local only (all of `out/` is gitignored).
 
 ## Adjusting which stats get extracted
 

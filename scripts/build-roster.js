@@ -191,13 +191,23 @@ function main() {
   reportLines.push('');
   reportLines.push(`Ambiguous players (${matchReport.ambiguous.length}) — multiple player_id candidates, values left as-is:`);
   matchReport.ambiguous.forEach((a) => reportLines.push(`  - ${a.name}: ${a.candidates.join(', ')}`));
-  fs.writeFileSync(path.join(OUT_DIR, 'match-report.txt'), reportLines.join('\n') + '\n', 'utf8');
+  const matchReportText = reportLines.join('\n') + '\n';
+  fs.writeFileSync(path.join(OUT_DIR, 'match-report.txt'), matchReportText, 'utf8');
+
+  // --- archive a timestamped copy of the changelog + match report so past
+  //     runs aren't lost when the "latest" files above get overwritten ---
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const historyDir = path.join(OUT_DIR, 'history');
+  fs.mkdirSync(historyDir, { recursive: true });
+  fs.writeFileSync(path.join(historyDir, `${timestamp}-changelog.csv`), changelogText, 'utf8');
+  fs.writeFileSync(path.join(historyDir, `${timestamp}-match-report.txt`), matchReportText, 'utf8');
 
   console.log(`Wrote out/nba-players.csv (${playerRows.length} players)`);
   console.log(`Wrote out/changelog.csv (${changelog.length} changes)`);
   console.log(
     `Wrote out/match-report.txt (${matchReport.unmatched.length} unmatched, ${matchReport.ambiguous.length} ambiguous)`
   );
+  console.log(`Archived this run to out/history/${timestamp}-*`);
 }
 
 main();
