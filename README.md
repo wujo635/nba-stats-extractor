@@ -6,23 +6,48 @@ in `data/`.
 
 ## Usage
 
+Two scripts share the same `config/fields.json`/`config/aliases.json` setup and the same
+field-extraction logic (`scripts/lib/fieldExtraction.js`), but serve different purposes:
+
+### `build-roster.js` — fill in a curated roster
+
 ```bash
 node scripts/build-roster.js
 ```
 
-Reads `data/baseline/nba-players.csv` and writes:
+Reads `data/baseline/nba-players.csv` (a hand-picked player list, e.g. a Ranker roster you're
+already curating) and writes:
 
 - `out/nba-players.csv` — the regenerated roster, same format as the baseline
 - `out/changelog.csv` — every value that changed vs. the baseline (`Name,Field,Was,Now`)
 - `out/match-report.txt` — roster names that couldn't be matched to a Basketball-Reference `player_id`, or matched more than one
 - `out/history/<timestamp>-changelog.csv` and `out/history/<timestamp>-match-report.txt` — a timestamped copy of the above from every run, so past runs aren't lost when the "latest" files get overwritten. Local only (all of `out/` is gitignored).
 
+### `build-all-players.js` — generate the full player universe
+
+```bash
+node scripts/build-all-players.js
+```
+
+No baseline needed — includes every player with at least one NBA season across the whole
+Kaggle dataset (~4,900 players), matched directly by `player_id` (no name-matching step, since
+there's no external roster to reconcile against). Writes `out/all-players/nba-players.csv` in
+the same Ranker format, with its `#category`/`#primary`/`#field` meta header generated straight
+from `config/fields.json`.
+
+A handful of NBA players share a name with another NBA player (e.g. two "Patrick Ewing"s) —
+`build-all-players.js` disambiguates by appending each one's birth year, e.g.
+`Patrick Ewing (1962)` vs `Patrick Ewing (1984)`.
+
+There's no changelog/match-report/history for this script — there's no baseline to diff against,
+and no name-matching ambiguity to report.
+
 ## Adjusting which stats get extracted
 
 Edit `config/fields.json`. Each entry controls one output column:
 
-- `enabled: false` — leave the column exactly as it is in the baseline (used today for `Championships` and `Finals Appearances`, which aren't derivable from this dataset)
-- `enabled: true` — recompute the column from a source CSV in `data/`, overwriting the baseline value
+- `enabled: false` — `build-roster.js` leaves the column exactly as it is in the baseline; `build-all-players.js` leaves it blank (used today for `Championships` and `Finals Appearances`, which aren't derivable from this dataset)
+- `enabled: true` — recompute the column from a source CSV in `data/` for every player
   - `source` — which CSV file in `data/` to read
   - `leagues` — restrict to these `lg` values (e.g. `["NBA"]`, excludes ABA/BAA)
   - `filter` — additional exact-match column filters (e.g. `{"award": "nba mvp", "winner": "TRUE"}`)
