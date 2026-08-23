@@ -1,0 +1,65 @@
+{
+  "_comment": "Controls which output columns get generated and how each is computed from the Kaggle CSVs in data/. Toggle 'enabled' to turn a field on/off, or add new fields following the same shape. Each field's 'aggregate' must be one supported by scripts/lib/aggregates.js.",
+
+  "category": "NBA Players",
+  "primary": "Name",
+
+  "fields": [
+    {
+      "name": "Championships",
+      "enabled": false,
+      "note": "Not derivable from the Kaggle box-score dataset; needs a secondary NBA Finals results source. Skipped for this pass."
+    },
+    {
+      "name": "Seasons Played",
+      "enabled": true,
+      "source": "Player Totals.csv",
+      "leagues": ["NBA"],
+      "aggregate": "count_distinct",
+      "column": "season"
+    },
+    {
+      "name": "Points",
+      "enabled": true,
+      "source": "Player Totals.csv",
+      "leagues": ["NBA"],
+      "aggregate": "sum",
+      "column": "pts"
+    },
+    {
+      "name": "Assists",
+      "enabled": true,
+      "source": "Player Totals.csv",
+      "leagues": ["NBA"],
+      "aggregate": "sum",
+      "column": "ast"
+    },
+    {
+      "name": "Rebounds",
+      "enabled": true,
+      "source": "Player Totals.csv",
+      "leagues": ["NBA"],
+      "aggregate": "sum",
+      "column": "trb"
+    },
+    {
+      "name": "MVP Awards",
+      "enabled": true,
+      "source": "Player Award Shares.csv",
+      "aggregate": "count_rows",
+      "filter": { "award": "nba mvp", "winner": "TRUE" }
+    },
+    {
+      "name": "All-Star Selections",
+      "enabled": true,
+      "source": "All-Star Selections.csv",
+      "leagues": ["NBA"],
+      "aggregate": "count_rows"
+    },
+    {
+      "name": "Finals Appearances",
+      "enabled": false,
+      "note": "Not derivable from the Kaggle box-score dataset; needs a secondary NBA Finals results source. Skipped for this pass."
+    }
+  ]
+}

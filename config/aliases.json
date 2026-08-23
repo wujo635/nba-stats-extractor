@@ -1,0 +1,6 @@
+{
+  "_comment": "Manual overrides for roster names that don't auto-match a Basketball-Reference player_id in data/Player Career Info.csv, even after accent/punctuation-insensitive matching. Key = exact 'Name' as it appears in the roster CSV, value = player_id from that file.",
+
+  "Nate Archibald": "architi01",
+  "Patrick Ewing": "ewingpa01"
+}
