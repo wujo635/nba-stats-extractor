@@ -5,6 +5,7 @@ const path = require('path');
 const { stringifyCsvRow } = require('./lib/csv');
 const { loadSourceIndex, computeField } = require('./lib/fieldExtraction');
 const { loadCareerInfoRecords } = require('./lib/careerInfo');
+const { buildMetaLines, buildHeader } = require('./lib/schema');
 
 const ROOT = path.resolve(__dirname, '..');
 const DATA_DIR = path.join(ROOT, 'data');
@@ -52,16 +53,6 @@ function assignDisplayNames(players) {
   return collisions;
 }
 
-// ---------------------------------------------------------------------------
-// Meta header: generated from config/fields.json (no baseline file exists for
-// this script), so it always matches whatever fields are currently defined.
-// ---------------------------------------------------------------------------
-function buildMetaLines() {
-  const lines = [`#category,${CONFIG.category}`, `#primary,${CONFIG.primary}`];
-  for (const field of CONFIG.fields) lines.push(`#field,${field.name},optional`);
-  return lines;
-}
-
 function main() {
   const nbaIds = findNbaPlayerIds();
   const allCareerRecords = loadCareerInfoRecords(DATA_DIR);
@@ -74,8 +65,7 @@ function main() {
   const sourceFiles = [...new Set(enabledFields.map((f) => f.source))];
   const sourceIndexes = new Map(sourceFiles.map((f) => [f, loadSourceIndex(DATA_DIR, f)]));
 
-  const header = [CONFIG.primary, ...CONFIG.fields.map((f) => f.name)];
-  const outRows = [header];
+  const outRows = [buildHeader(CONFIG)];
 
   for (const r of careerRecords) {
     const row = [r.displayName];
@@ -91,7 +81,7 @@ function main() {
 
   fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
   const outText =
-    buildMetaLines().join('\n') + '\n' + outRows.map((r) => stringifyCsvRow(r)).join('\n') + '\n';
+    buildMetaLines(CONFIG).join('\n') + '\n' + outRows.map((r) => stringifyCsvRow(r)).join('\n') + '\n';
   fs.writeFileSync(OUT_PATH, outText, 'utf8');
 
   console.log(`Career Info players: ${allCareerRecords.length}`);

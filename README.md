@@ -51,9 +51,20 @@ Edit `config/fields.json`. Each entry controls one output column:
   - `source` — which CSV file in `data/` to read
   - `leagues` — restrict to these `lg` values (e.g. `["NBA"]`, excludes ABA/BAA)
   - `filter` — additional exact-match column filters (e.g. `{"award": "nba mvp", "winner": "TRUE"}`)
-  - `aggregate` — how to combine the matching rows: `sum` (a `column`), `count_distinct` (distinct values of a `column`), or `count_rows`
+  - `aggregate` — how to combine the matching rows: `sum` (a `column`), `count_distinct` (distinct values of a `column`), `count_rows`, `min`/`max` (a numeric `column`), or `year_ranges` (a `column` of years, collapsed into a display string like `"2001-2005, 2006"`)
 
-To add a new stat, add a new aggregate function in `scripts/lib/aggregates.js` if needed, then add a field entry.
+To add a new stat, add a new aggregate function in `scripts/lib/aggregates.js` if needed, then add a field entry — both scripts' output columns and meta header (`scripts/lib/schema.js`) are generated directly from this config, so a new field shows up in both automatically.
+
+### When each player was active
+
+Three fields cover this, computed from `Player Totals.csv`'s `season` column:
+
+- `First Season` / `Last Season` — plain numbers. These are the only representation that gets a
+  real filter in Ranker (numeric fields get min/max range filters; string fields only get
+  exact-match pills). They collapse career gaps into one span — e.g. Michael Jordan's two
+  retirements aren't visible in `First Season: 1985` / `Last Season: 2003` alone.
+- `Years Played` — a human-readable range string, e.g. Jordan's is `"1985-1993, 1995-1998, 2002-2003"`.
+  Accurate about gaps, but not filterable/sortable as a string field in Ranker — it's there for display.
 
 ## Name matching
 
