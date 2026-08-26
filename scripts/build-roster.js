@@ -6,6 +6,7 @@ const { parseCsv, stringifyCsvRow } = require('./lib/csv');
 const { normalizeName } = require('./lib/normalize');
 const { loadSourceIndex, computeField } = require('./lib/fieldExtraction');
 const { loadCareerInfoRecords } = require('./lib/careerInfo');
+const { buildMetaLines, buildHeader } = require('./lib/schema');
 
 const ROOT = path.resolve(__dirname, '..');
 const DATA_DIR = path.join(ROOT, 'data');
@@ -16,17 +17,17 @@ const ALIASES = JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'aliases.js
 delete ALIASES._comment;
 
 // ---------------------------------------------------------------------------
-// 1. Load the baseline roster: preserve its "#..." metadata lines verbatim,
-//    and parse the header + player rows as CSV.
+// 1. Load the baseline roster: skip its "#..." metadata lines (the output's
+//    schema comes from config/fields.json instead, see schema.js — this way
+//    adding a field to the config also adds it here, not just in the
+//    baseline file's own header), and parse the header + player rows as CSV.
 // ---------------------------------------------------------------------------
 function loadBaseline() {
   const raw = fs.readFileSync(BASELINE_PATH, 'utf8');
   const lines = raw.split(/\r?\n/).filter((l) => l.length > 0 || l === '');
-  const metaLines = [];
   let splitIdx = 0;
   for (let i = 0; i < lines.length; i++) {
     if (lines[i].startsWith('#')) {
-      metaLines.push(lines[i]);
       splitIdx = i + 1;
     } else {
       break;
@@ -34,9 +35,9 @@ function loadBaseline() {
   }
   const csvText = lines.slice(splitIdx).join('\n');
   const rows = parseCsv(csvText);
-  const header = rows[0]; // Name,Championships,Seasons Played,...
+  const header = rows[0]; // Name,Championships,Seasons Played,... (whatever the baseline currently has)
   const playerRows = rows.slice(1).filter((r) => r.length > 1 || (r[0] && r[0].trim() !== ''));
-  return { metaLines, header, playerRows };
+  return { header, playerRows };
 }
 
 // ---------------------------------------------------------------------------
@@ -72,7 +73,7 @@ function resolvePlayerId(name, careerIndex, matchReport) {
 // Main
 // ---------------------------------------------------------------------------
 function main() {
-  const { metaLines, header, playerRows } = loadBaseline();
+  const { header, playerRows } = loadBaseline();
   const careerIndex = loadCareerIndex();
   const enabledFields = CONFIG.fields.filter((f) => f.enabled);
   const sourceFiles = [...new Set(enabledFields.map((f) => f.source))];
@@ -80,21 +81,22 @@ function main() {
 
   const matchReport = { unmatched: [], ambiguous: [] };
   const changelog = [];
-  const outRows = [header];
+  const outRows = [buildHeader(CONFIG)];
 
   for (const row of playerRows) {
     const name = row[0];
+    // Baseline column names/order can lag config/fields.json (e.g. a field
+    // the baseline file doesn't have yet) — look values up by name, not index.
     const baselineValues = {};
     header.slice(1).forEach((col, i) => (baselineValues[col] = row[i + 1]));
 
     const playerId = resolvePlayerId(name, careerIndex, matchReport);
     const outRow = [name];
 
-    for (const col of header.slice(1)) {
-      const field = CONFIG.fields.find((f) => f.name === col);
-      const baselineValue = baselineValues[col] || '';
+    for (const field of CONFIG.fields) {
+      const baselineValue = baselineValues[field.name] || '';
 
-      if (!field || !field.enabled) {
+      if (!field.enabled) {
         // Field not configured for extraction (or disabled) — pass baseline value through untouched.
         outRow.push(baselineValue);
         continue;
@@ -110,18 +112,18 @@ function main() {
       outRow.push(newValue);
 
       if (baselineValue !== '' && baselineValue !== newValue) {
-        changelog.push({ name, field: col, was: baselineValue, now: newValue });
+        changelog.push({ name, field: field.name, was: baselineValue, now: newValue });
       } else if (baselineValue === '' && newValue !== '') {
-        changelog.push({ name, field: col, was: '(empty)', now: newValue });
+        changelog.push({ name, field: field.name, was: '(empty)', now: newValue });
       }
     }
     outRows.push(outRow);
   }
 
-  // --- write output CSV, preserving original metadata header lines ---
+  // --- write output CSV, meta header generated from config/fields.json ---
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const outText =
-    metaLines.join('\n') + '\n' + outRows.map((r) => stringifyCsvRow(r)).join('\n') + '\n';
+    buildMetaLines(CONFIG).join('\n') + '\n' + outRows.map((r) => stringifyCsvRow(r)).join('\n') + '\n';
   fs.writeFileSync(path.join(OUT_DIR, 'nba-players.csv'), outText, 'utf8');
 
   // --- write changelog ---

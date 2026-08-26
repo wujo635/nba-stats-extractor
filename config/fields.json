@@ -19,6 +19,33 @@
       "column": "season"
     },
     {
+      "name": "First Season",
+      "enabled": true,
+      "source": "Player Totals.csv",
+      "leagues": ["NBA"],
+      "aggregate": "min",
+      "column": "season",
+      "note": "Numeric, gets a real min/max range filter in Ranker. Collapses career gaps (see Years Played for a gap-accurate view)."
+    },
+    {
+      "name": "Last Season",
+      "enabled": true,
+      "source": "Player Totals.csv",
+      "leagues": ["NBA"],
+      "aggregate": "max",
+      "column": "season",
+      "note": "Numeric, gets a real min/max range filter in Ranker. Collapses career gaps (see Years Played for a gap-accurate view)."
+    },
+    {
+      "name": "Years Played",
+      "enabled": true,
+      "source": "Player Totals.csv",
+      "leagues": ["NBA"],
+      "aggregate": "year_ranges",
+      "column": "season",
+      "note": "Human-readable, e.g. \"2001-2005, 2006\". Preserves career gaps, but is a string field in Ranker (exact-match pills only, no range filter)."
+    },
+    {
       "name": "Points",
       "enabled": true,
       "source": "Player Totals.csv",
